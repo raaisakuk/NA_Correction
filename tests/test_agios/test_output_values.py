@@ -1,34 +1,37 @@
-import pytest
+import os
 import pandas as pd
-from corna.algorithms.nacorr_correction_matrix.na_correction import na_correction
-from corna.output import convert_to_df
+import pytest
 
-
-
+from corna.algorithms.nacorr_lcms import na_correction
 
 single_tracers = ['C13']
 multi_tracers = ['C13', 'N15']
 na_dict = {'H':[0.98,0.01,0.01], 'C': [0.95, 0.05], 'S': [0.922297, 0.046832, 0.030872], 'O':[0.95,0.03,0.02], 'N': [0.8, 0.2]}
-
+na_dict_auto= {'C':[0.9889,0.0111],
+'N':[0.9964,0.0036],
+'O':[0.9976,0.0004,0.002],
+'H':[0.99985,0.00015],
+'S':[0.95,0.0076,0.0424],
+}
 
 def test_na_corr_single_tracer():
-
-	df = pd.DataFrame({'Name': {0: 'Acetic', 1: 'Acetic', 2: 'Acetic'}, \
-	 'Parent': {0: 'Acetic', 1: 'Acetic', 2: 'Acetic'}, \
-	  'Label': {0: 'C12 PARENT', 1: 'C13-label-1', 2: 'C13-label-2'}, \
-	   'Intensity': {0: 0.3624, 1: 0.040349999999999997, 2: 0.59724999999999995}, \
-	    'Formula': {0: 'H4C2O2', 1: 'H4C2O2', 2: 'H4C2O2'}, \
-	    'info2': {0: 'culture_1', 1: 'culture_1', 2: 'culture_1'}, \
-	     'Sample': {0: 'sample_1', 1: 'sample_1', 2: 'sample_1'}})
+	df = pd.DataFrame({'Name': {0: 'Acetic', 1: 'Acetic', 2: 'Acetic'},
+					   'Parent': {0: 'Acetic', 1: 'Acetic', 2: 'Acetic'},
+					   'Label': {0: 'C12 PARENT', 1: 'C13-label-1', 2: 'C13-label-2'},
+					   'Intensity': {0: 0.3624, 1: 0.040349999999999997, 2: 0.59724999999999995},
+					   'Formula': {0: 'H4C2O2', 1: 'H4C2O2', 2: 'H4C2O2'},
+					   'info2': {0: 'culture_1', 1: 'culture_1', 2: 'culture_1'},
+					   'Sample': {0: 'sample_1', 1: 'sample_1', 2: 'sample_1'}})
 
 	eleme_corr = {}
 
-	na_corr_dict = na_correction(df, single_tracers, eleme_corr, na_dict)
-	na_corr_df = convert_to_df(na_corr_dict, False, colname='NA corrected')
+	na_corr_df, corr_dct = na_correction(df, ['C13'], '', na_dict, eleme_corr,
+									       autodetect=False)
+	print na_corr_df
 
-	output_list = [0.59613019390581723, 0.0023185595567866008, 0.40155124653739621]
+	output_list = [0.4015512465373961, 0.0023185595567865968, 0.59613019390581734]
 
-	assert na_corr_df['NA corrected'].tolist() == output_list
+	assert na_corr_df['NA Corrected'].tolist() == output_list
 
 
 def test_na_corr_single_trac_indist():
@@ -43,78 +46,73 @@ def test_na_corr_single_trac_indist():
 
 	eleme_corr = {'C': ['H', 'O']}
 
-	na_corr_dict = na_correction(df, single_tracers, eleme_corr, na_dict)
-	na_corr_df = convert_to_df(na_corr_dict, False, colname='NA corrected')
+	na_corr_df, corr_dict = na_correction(df, ['C13'], '', na_dict, eleme_corr, 
+											autodetect=False)
 
-	output_list = [0.2783720710600131, 0.52118757080316813, 0.3026855833807266]
+	output_list = [0.3035536244690365, 0.48572975053068485, 0.1961957568543734]
 
-	assert na_corr_df['NA corrected'].tolist() == output_list
+	assert na_corr_df['NA Corrected'].tolist() == output_list
 
 def test_na_corr_multi_trac():
-
-	df = pd.DataFrame({'Name': {0: 'L-Methionine', 1: 'L-Methionine', 2: 'L-Methionine', 3: 'L-Methionine',
-		4: 'L-Methionine', 5: 'L-Methionine', 6: 'L-Methionine', 7: 'L-Methionine',
-		8: 'L-Methionine', 9: 'L-Methionine', 10: 'L-Methionine', 11: 'L-Methionine'},
-		'Parent': {0: 'L-Methionine', 1: 'L-Methionine', 2: 'L-Methionine', 3: 'L-Methionine',
-		4: 'L-Methionine', 5: 'L-Methionine', 6: 'L-Methionine', 7: 'L-Methionine', 8: 'L-Methionine',
-		9: 'L-Methionine', 10: 'L-Methionine', 11: 'L-Methionine'}, 'Label': {0: 'C12 PARENT',
-		1: 'C13-label-1', 2: 'C13-label-2', 3: 'C13-label-3', 4: 'C13-label-4', 5: 'C13-label-5',
-		6: 'N15-label-1', 7: 'C13N15-label-1-1', 8: 'C13N15-label-2-1', 9: 'C13N15-label-3-1',
-		10: 'C13N15-label-4-1', 11: 'C13N15-label-5-1'},
-		'Intensity': {0: 0.24560000000000001, 1: 0.066650000000000001, 2: 0.0071000000000000004,
-		3: 0.00029999999999999997, 4: 0.0, 5: 0.0, 6: 0.061899999999999997, 7: 0.016400000000000001,
-		8: 0.0015, 9: 0.0001, 10: 0.0, 11: 0.60045000000000004},
-		'Formula': {0: 'C5H10NO2S', 1: 'C5H10NO2S',
-		2: 'C5H10NO2S', 3: 'C5H10NO2S', 4: 'C5H10NO2S', 5: 'C5H10NO2S', 6: 'C5H10NO2S',
-		7: 'C5H10NO2S', 8: 'C5H10NO2S', 9: 'C5H10NO2S', 10: 'C5H10NO2S', 11: 'C5H10NO2S'},
-		'Sample': {0: 'sample_1', 1: 'sample_1',
-		2: 'sample_1', 3: 'sample_1', 4: 'sample_1', 5: 'sample_1', 6: 'sample_1',
-		7: 'sample_1', 8: 'sample_1', 9: 'sample_1', 10: 'sample_1', 11: 'sample_1'}})
-
+	df = pd.DataFrame({'Name': {0: 'L-Methionine', 1: 'L-Methionine'},
+					   'Label': {0: 'C12 PARENT', 1: 'C13-label-1'},
+					   'Intensity': {0: 0.203405, 1: 0.050069999999999996},
+					   'Formula': {0: 'C5H10NO2S', 1: 'C5H10NO2S'},
+					   'Sample': {0: 'sample_1', 1: 'sample_1'}})
 	eleme_corr = {}
+	na_corr_df, corr_dict = na_correction(df, ['C13', 'N15'], '',
+											na_dict, eleme_corr,
+											autodetect=False)
 
-	na_corr_dict = na_correction(df, multi_tracers, eleme_corr, na_dict)
-	na_corr_df = convert_to_df(na_corr_dict, False, colname='NA corrected')
-
-	output_list = [0.00064617771744998609, 0.3967531185142435, -9.8844997716120012e-05,
-	7.0170861504082293e-05, -0.00024013579424740682, -0.00018698767698716368,
-	0.0030976144330255844, -0.00048382556594077245, -2.6604348209106283e-06,
-	-4.9943479640610513e-06, 2.6016225533332996e-07, 0.60045010712919833]
-
-	assert na_corr_df['NA corrected'].tolist() == output_list
+	output_list = [0.3285894465447474, -0.06571788930894949, -0.005306330643483816, 
+				0.0010612661286967635, -0.007153470034923123, 0.0014306940069846248, 
+				0.0007418786567104569, -0.00014837573134209142, -2.8152095292076256e-05, 
+				5.630419058415252e-06, 3.775722416858374e-07, -7.55144483371675e-08]
+	assert na_corr_df['NA Corrected'].tolist() == output_list
 
 
 def test_na_corr_multi_trac_indist():
-
-	df = pd.DataFrame({'Name': {0: 'L-Methionine', 1: 'L-Methionine', 2: 'L-Methionine', 3: 'L-Methionine',
-		4: 'L-Methionine', 5: 'L-Methionine', 6: 'L-Methionine', 7: 'L-Methionine', 8: 'L-Methionine',
-		9: 'L-Methionine', 10: 'L-Methionine', 11: 'L-Methionine'}, 'Parent': {0: 'L-Methionine',
-		1: 'L-Methionine', 2: 'L-Methionine', 3: 'L-Methionine', 4: 'L-Methionine', 5: 'L-Methionine',
-		6: 'L-Methionine', 7: 'L-Methionine', 8: 'L-Methionine', 9: 'L-Methionine', 10: 'L-Methionine',
-		11: 'L-Methionine'}, 'Label': {0: 'C12 PARENT', 1: 'C13-label-1', 2: 'C13-label-2',
-		3: 'C13-label-3', 4: 'C13-label-4', 5: 'C13-label-5', 6: 'N15-label-1', 7: 'C13N15-label-1-1',
-		8: 'C13N15-label-2-1', 9: 'C13N15-label-3-1', 10: 'C13N15-label-4-1', 11: 'C13N15-label-5-1'},
-		'Intensity': {0: 0.203405, 1: 0.050069999999999996, 2: 0.093910000000000007, 3: 0.02402,
-		4: 0.02051, 5: 0.0051600000000000005, 6: 0.0028300000000000001, 7: 0.00065499999999999998,
-		8: 0.00022499999999999999, 9: 8.4999999999999993e-05, 10: 5.0000000000000004e-06,
-		11: 0.48973500000000003},
-		'Formula': {0: 'C5H10NO2S', 1: 'C5H10NO2S', 2: 'C5H10NO2S', 3: 'C5H10NO2S', 4: 'C5H10NO2S',
-		5: 'C5H10NO2S', 6: 'C5H10NO2S', 7: 'C5H10NO2S', 8: 'C5H10NO2S', 9: 'C5H10NO2S', 10: 'C5H10NO2S',
-		11: 'C5H10NO2S'}, 'Sample': {0: 'sample_1', 1: 'sample_1', 2: 'sample_1',
-		 3: 'sample_1', 4: 'sample_1', 5: 'sample_1', 6: 'sample_1', 7: 'sample_1', 8: 'sample_1',
-		 9: 'sample_1', 10: 'sample_1', 11: 'sample_1'}})
-
+	df = pd.DataFrame({'Name': {0: 'L-Methionine', 1: 'L-Methionine'},
+					   'Label': {0: 'C12 PARENT', 1: 'C13-label-1'},
+					   'Intensity': {0: 0.203405, 1: 0.050069999999999996},
+					   'Formula': {0: 'C5H10NO2S', 1: 'C5H10NO2S'},
+					   'Sample': {0: 'sample_1', 1: 'sample_1'}})
 	eleme_corr = {'C': ['H']}
+	na_corr_df, corr_dict =  na_correction(df, ['C13', 'N15'],'',
+														   na_dict, eleme_corr,
+														   autodetect=False)
+	output_list = [0.40215440095785504, -0.08043088019157102, -0.04547876075722601,
+				 0.009095752151445204, -0.04503063995239236, 0.009006127990478473,
+				 0.002629393437085129, -0.000525878687417026, 0.002627198654786159,
+				 -0.000525439730957232, 3.300655199399871e-05, -6.6013103987997436e-06]
+	assert na_corr_df['NA Corrected'].tolist() == output_list
 
-	na_corr_dict = na_correction(df, multi_tracers, eleme_corr, na_dict)
-	na_corr_df = convert_to_df(na_corr_dict, False, colname='NA corrected')
+def test_ppm_nacorrection():
+	df = pd.DataFrame({'Name': {0: 'Pyruvic acid', 1: 'Pyruvic acid'},
+					   'Label': {0: 'C12 PARENT', 1: 'C13-label-1'},
+					   'Intensity': {0: 287515.1, 1: 7354.636},
+					   'Formula': {0: 'C3H4O3', 1: 'C3H4O3'},
+					   'Sample': {0: 'sample_1', 1: 'sample_1'}})
+	eleme_corr = {}
+	na_corr_df, corr_dict = na_correction(df, ['C13'], 50, na_dict_auto, eleme_corr, 
+											autodetect=True)
 
-	output_list = [-0.075954704287110375, 0.40215442709008198, 0.016489750088414929, -0.0032216908381774477,
-	-0.031526293342053771, 0.15881269215932281, -0.0064943180078375707,
-	0.0011640245763342482, 0.030179296768192233, -0.0060388880912154832,
-	 0.0063239074820523374, 0.59811258028877923]
-
-	assert na_corr_df['NA corrected'].tolist() == output_list
+	output_list = [297484.35034520662, -2557.5824049265775, -57.580996614900414, 0.54905682625541885]
+	assert list(na_corr_df['NA Corrected']) == output_list
+	assert corr_dict == {'Pyruvic acid': {'C': ['H', 'O17']}}
 
 
 
+"""
+def test_autodetect_nacorr():
+	df = pd.DataFrame({'Name': {0: 'Pyruvic acid', 1: 'Pyruvic acid'},
+					   'Label': {0: 'C12 PARENT', 1: 'C13N15-label-3-1'},
+					   'Intensity': {0: 0.3303, 1: 0.5065},
+					   'Formula': {0: 'C10H17N3O6S', 1: 'C10H17N3O6S'},
+					   'Sample': {0: 'sample_1', 1: 'sample_1'}})
+	#eleme_corr = {}
+	eleme_corr = {'C':['H','O','O'], 'N':['S']}
+	na_corr_df, corr_dict = na_correction(df, ['C13','N15'], 10, na_dict_auto, eleme_corr, 
+											autodetect=False)
+	print na_corr_df
+"""
